@@ -85,6 +85,18 @@ It is safe to run while the API is running.
 
 ---
 
+## Deployment (Vercel + Render)
+
+The frontend is a static Vite app on **Vercel**. The Express API and SQLite database run on **Render**. Vercel forwards `/api/*` to Render (`client/vercel.json`), so the browser sees a single origin and session cookies work.
+
+1. **API on Render:** in Render, choose **New → Blueprint**, connect this repo, and apply `render.yaml`. It creates the free web service `sqms-api-purvesh597` and generates `JWT_SECRET`. When it's live, check `https://sqms-api-purvesh597.onrender.com/api/health`.
+2. **Frontend on Vercel:** set the project's **Root Directory** to `client` (framework preset: Vite). `client/vercel.json` adds the `/api` proxy and the single-page-app fallback, so routes such as `/student` work when the page is refreshed.
+3. If Render gives the service a different URL, update the `destination` in `client/vercel.json` and push.
+
+Free-tier notes: the Render service sleeps after 15 minutes without traffic, and the first request after that takes about 50 seconds. The database is re-created and **re-seeded on every start**, so open the site a minute before a demo to wake it up and get fresh data. The server runs in `Asia/Kolkata` time (`TZ` in `render.yaml`) so meal timings match the college clock.
+
+---
+
 ## Demo accounts
 
 | Role | Email | Password |

@@ -1,0 +1,25 @@
+# Render Blueprint for the SQMS API (free web service).
+# The SQLite file lives on Render's ephemeral disk, so demo data is re-seeded on every start.
+services:
+  - type: web
+    name: sqms-api-purvesh597
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:./dev.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: TRUST_PROXY_HOPS
+        value: "2"
+      # Meal timings and "today" use the server clock, so run it in the college's timezone.
+      - key: TZ
+        value: Asia/Kolkata

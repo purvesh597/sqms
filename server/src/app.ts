@@ -8,7 +8,7 @@ import { apiRouter } from './routes';
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', 1);
+  app.set('trust proxy', env.trustProxyHops);
   app.use(helmet({ contentSecurityPolicy: false }));
   // The Vite dev server proxies /api, so the browser sees a single origin. This allows a
   // separately hosted client to call the API with credentials when CLIENT_ORIGIN is set.

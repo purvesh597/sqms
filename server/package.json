@@ -13,7 +13,8 @@
     "seed": "prisma db push --skip-generate && tsx prisma/seed.ts",
     "test": "tsx scripts/smoke-test.ts",
     "postinstall": "prisma generate",
-    "env:init": "node -e \"const f=require('fs');if(!f.existsSync('.env'))f.copyFileSync('.env.example','.env')\""
+    "env:init": "node -e \"const f=require('fs');if(!f.existsSync('.env'))f.copyFileSync('.env.example','.env')\"",
+    "start:prod": "prisma db push --skip-generate && tsx prisma/seed.ts && node dist/index.js"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
@@ -35,5 +36,8 @@
     "prisma": "5.22.0",
     "tsx": "4.19.2",
     "typescript": "5.6.3"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
