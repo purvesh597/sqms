@@ -1,0 +1,16 @@
+{
+  "name": "sqms",
+  "private": true,
+  "version": "1.0.0",
+  "description": "SQMS – Smart Mess Queue Management System",
+  "scripts": {
+    "setup": "npm install && npm --prefix server install && npm --prefix client install && npm --prefix server run db:setup",
+    "dev": "concurrently -n server,client -c blue,green \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "build": "npm --prefix server run build && npm --prefix client run build",
+    "seed": "npm --prefix server run seed",
+    "test": "npm --prefix server run test"
+  },
+  "devDependencies": {
+    "concurrently": "9.1.0"
+  }
+}

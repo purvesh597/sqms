@@ -1,0 +1,166 @@
+// SQMS – Smart Mess Queue Management System
+// SQLite does not support native enums in Prisma, so enum-like fields are
+// stored as strings and validated in the application layer (src/config/constants.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(cuid())
+  name             String
+  email            String   @unique
+  passwordHash     String
+  role             String // STUDENT | STAFF | ADMIN
+  rollNumber       String?  @unique
+  phone            String?
+  hostel           String?
+  isActive         Boolean  @default(true)
+  assignedCounterId String?
+  assignedCounter  Counter? @relation("StaffCounter", fields: [assignedCounterId], references: [id], onDelete: SetNull)
+  lastLoginAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tokens        Token[]
+  notifications Notification[]
+  queueEvents   QueueEvent[]
+}
+
+model MessService {
+  id                 String   @id @default(cuid())
+  name               String
+  location           String
+  description        String?
+  // Fallback average service time (seconds) used when there is not enough observed data.
+  defaultServiceSecs Int      @default(90)
+  // Send a "turn approaching" notification when this many (or fewer) tokens are ahead.
+  approachThreshold  Int      @default(3)
+  // When true, tokens can only be generated during a meal's configured time window.
+  enforceMealTimings Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  counters Counter[]
+  meals    Meal[]
+}
+
+model Counter {
+  id            String      @id @default(cuid())
+  name          String
+  code          String      @unique // short prefix used in token numbers, e.g. "A"
+  description   String?
+  isActive      Boolean     @default(true)
+  isPaused      Boolean     @default(false)
+  serviceSecs   Int?        // optional per-counter service time override
+  messServiceId String
+  messService   MessService @relation(fields: [messServiceId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  tokens      Token[]
+  queueEvents QueueEvent[]
+  staff       User[]       @relation("StaffCounter")
+}
+
+model Meal {
+  id            String      @id @default(cuid())
+  type          String      @unique // BREAKFAST | LUNCH | SNACKS | DINNER
+  name          String
+  startTime     String // "HH:mm" (24h, server local time)
+  endTime       String // "HH:mm"
+  isActive      Boolean     @default(true)
+  sortOrder     Int         @default(0)
+  messServiceId String
+  messService   MessService @relation(fields: [messServiceId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  menuItems MenuItem[]
+  tokens    Token[]
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String // MAIN | SIDE | BREAD | RICE | DESSERT | BEVERAGE
+  isVeg       Boolean  @default(true)
+  date        String // "YYYY-MM-DD"
+  mealId      String
+  meal        Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date, mealId])
+}
+
+model Token {
+  id          String    @id @default(cuid())
+  tokenNumber Int
+  date        String // service date "YYYY-MM-DD"
+  status      String    @default("WAITING") // WAITING | CALLED | SERVED | SKIPPED | CANCELLED
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  counterId   String
+  counter     Counter   @relation(fields: [counterId], references: [id], onDelete: Cascade)
+  mealId      String
+  meal        Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
+
+  // Concurrency guards enforced by unique indexes (NULLs never collide in SQLite):
+  // activeKey = "user:counter:meal:date" while WAITING/CALLED -> one active token per student per queue
+  // calledKey = "counter:meal:date" while CALLED -> one called token per counter queue
+  activeKey String? @unique
+  calledKey String? @unique
+
+  recallCount         Int       @default(0)
+  approachingNotified Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  calledAt            DateTime?
+  servedAt            DateTime?
+  skippedAt           DateTime?
+  cancelledAt         DateTime?
+  updatedAt           DateTime  @updatedAt
+
+  notifications Notification[]
+  queueEvents   QueueEvent[]
+
+  @@unique([counterId, mealId, date, tokenNumber])
+  @@index([counterId, mealId, date, status])
+  @@index([userId, date])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // TURN_APPROACHING | TOKEN_CALLED | TOKEN_RECALLED | TOKEN_SERVED | TOKEN_SKIPPED | TOKEN_CANCELLED | TOKEN_GENERATED
+  title     String
+  message   String
+  tokenId   String?
+  token     Token?   @relation(fields: [tokenId], references: [id], onDelete: SetNull)
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead, createdAt])
+}
+
+model QueueEvent {
+  id        String   @id @default(cuid())
+  type      String // TOKEN_GENERATED | TOKEN_CALLED | TOKEN_RECALLED | TOKEN_SERVED | TOKEN_SKIPPED | TOKEN_CANCELLED | QUEUE_PAUSED | QUEUE_RESUMED
+  counterId String
+  counter   Counter  @relation(fields: [counterId], references: [id], onDelete: Cascade)
+  tokenId   String?
+  token     Token?   @relation(fields: [tokenId], references: [id], onDelete: SetNull)
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  details   String? // JSON string with extra context
+  createdAt DateTime @default(now())
+
+  @@index([counterId, createdAt])
+}
